@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='zonecheck',
-      version='1.0.2',
+      version='1.0.3',
       description='Librarys to check zones configuered on a server are working',
       author='John Bond',
       author_email='pypi@johnbond.org',

@@ -77,7 +77,7 @@ def get_facts_file(facts_dir):
     possible_path = [
             '/etc/puppetlabs/facter/facts.d',
             '/var/puppet/facts.d']
-    if facts_file == 'guess':
+    if facts_dir == 'guess':
         for path in possible_dirs:
             if os.path.exists(path):
                 return open(os.path.join(path, 'zone_status.txt'), 'w')
