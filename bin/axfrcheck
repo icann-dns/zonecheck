@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import os
+import os.path
+import yaml
+import socket
+import logging
+import argparse
+import dns.exception
+from time import sleep
+from zonecheck import AxfrCheck
+from dns.resolver import Resolver, NXDOMAIN, NoAnswer, NoNameservers
+
+def get_args():
+    '''get command line arguments'''
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--rrsig_time', default=172800, type=int, 
+            help='alert if the rrsig will expire in this my seconds')
+    parser.add_argument('--rrsig_perc', default=20, type=int, 
+            help='alert if the rrsig expiry is this percent or less')
+    parser.add_argument('--rrsig_ttl', default=2, type=int, 
+            help='alert if the rrsig expirs in this value * TTL')
+    parser.add_argument('--server', default='::1',
+            help='Server to pull the axfr from')
+    parser.add_argument('--out', default='/var/log/zone_rrsig_status.err',
+            help='location of error file')
+    parser.add_argument('--sleep', default=0.1, type=float,
+             help='comma seperated list of zones')
+    parser.add_argument('--config', default='/usr/local/etc/zone_check.conf',
+             help='comma seperated list of zones')
+    parser.add_argument('-v', '--verbose', action='count' )
+    return parser.parse_args()
+
+def set_log_level(args_level):
+    log_level = logging.ERROR
+    if args_level == 1:
+        log_level = logging.WARN
+    elif args_level == 2:
+        log_level = logging.INFO
+    elif args_level > 2:
+        log_level = logging.DEBUG
+    logging.basicConfig(level=log_level)
+
+def check_zone(server, zone, args):
+    logging.debug('{} @ {}'.format(zone, server))
+    zone_check = AxfrCheck(zone, server,
+            args.rrsig_ttl, args.rrsig_perc, args.rrsig_time)
+    zone_check.check()
+    return zone_check.errors
+
+def main():
+    args = get_args()
+    set_log_level(args.verbose)
+    error_file = args.out
+    config = yaml.load(file(args.config, 'r'))
+    errors = { }
+    for zone_set, cfg in config['zones'].items():
+        for zone in cfg['zones']:
+            check_errors = check_zone(args.server, zone, args)
+            if any(errors.values()):
+                if zone not in errors:
+                    errors[zone] = { }
+                errors[zone] = check_errors
+    if os.path.isfile(error_file):
+        os.unlink(error_file)
+    if errors:
+        logging.debug(yaml.dump(errors))
+        with open(error_file, 'w') as outfile:
+            outfile.write(yaml.dump(errors))
+
+
+
+if __name__ == '__main__':
+    main()

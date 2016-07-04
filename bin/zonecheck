@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+
+import os
+import os.path
+import yaml
+import socket
+import logging
+import argparse
+import dns.exception
+from time import sleep
+from zonecheck import ZoneCheck
+from dns.resolver import Resolver, NXDOMAIN, NoAnswer, NoNameservers
+
+def get_args():
+    '''get command line arguments'''
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--serial-lag', default=2, type=int, 
+            help='alert if the serial is behind by this value or more')
+    parser.add_argument('--out', default='/var/log/zone_status.err',
+            help='location of error file')
+    parser.add_argument('--puppet-facts', action='store_true')
+    parser.add_argument('--puppet-facts-dir', 
+            default='/etc/puppetlabs/facter/facts.d')
+    parser.add_argument('--config', default='/usr/local/etc/zone_check.conf',
+             help='comma seperated list of zones')
+    parser.add_argument('-v', '--verbose', action='count' )
+    return parser.parse_args()
+
+def set_log_level(args_level):
+    log_level = logging.CRITICAL
+    if args_level == 1:
+        log_level = logging.ERROR
+    elif args_level == 2:
+        log_level = logging.WARN
+    elif args_level == 3:
+        log_level = logging.INFO
+    elif args_level > 3:
+        log_level = logging.DEBUG
+    logging.basicConfig(level=log_level)
+
+def test_master(master):
+    '''test the master server is at least up before continuing'''
+    resolver = Resolver()
+    resolver.timeout = 5
+    master_tokens = master.split()
+    if len(master_tokens) == 3 and master_tokens[1] == 'port':
+        resolver.port = int(master_tokens[2])
+    resolver.nameservers = [master_tokens[0]]
+    try:
+        #check root right now we dont care what we 
+        #get we just want a dns response
+        response = resolver.query('.', 'SOA')
+        response = resolver.query('.', 'SOA', tcp=True)
+    except dns.exception.Timeout:
+        msg = 'Master check: {} Timeout'.format(master)
+        logging.debug(msg)
+        return msg
+    except socket.error:
+        msg = 'Master check: {} Socket Error'.format(master)
+        logging.debug(msg)
+        return msg
+    except (NoAnswer, NXDOMAIN, NoNameservers):
+        #we dont care about this just yet, 
+        #we are just checking the dns server is up
+        pass
+    return False
+
+def check_zone(master, zone, addr, args):
+    logging.debug('{} &  {} with {}'.format(
+        master,zone,addr))
+    zone_check = ZoneCheck(addr, master, zone)
+    zone_check.check()
+    return zone_check.errors
+
+def main():
+    args = get_args()
+    set_log_level(args.verbose)
+    error_file = args.out
+    config = yaml.load(file(args.config, 'r'))
+    errors = { }
+    master_soa_error = False
+    for zone_set, cfg in config['zones'].items():
+        if 'masters' not in cfg:
+            continue
+        for master in cfg['masters']:
+            master_error = test_master(master)
+            if master_error:
+                master_soa_error = True
+                if master not in errors:
+                    errors[master] = { }
+                errors[master]['master_error'] = master_error
+                continue
+            for zone in cfg['zones']:
+                for addr in config['ip_addresses']:
+                    check_errors = check_zone(master, zone, addr, args)
+                    if any(check_errors.values()):
+                        if master not in errors:
+                            errors[master] = { }
+                        if zone not in errors[master]:
+                            errors[master][zone] = { }
+                        errors[master][zone][addr] = check_errors
+                        if check_errors['master_soa']:
+                            master_soa_error = True
+
+    if os.path.isfile(error_file):
+        os.unlink(error_file)
+    if errors:
+        logging.debug(yaml.dump(errors))
+        with open(error_file, 'w') as outfile:
+            outfile.write(yaml.dump(errors))
+    if args.puppet_facts:
+        #this is a safty so we dont disable all kroot nodes if there is 
+        #a problem with the distribution layer
+        if master_soa_error:
+            facter_error = 'false'
+        else:
+            facter_error = str(any(errors)).lower()
+        facts = 'zone_status_errors={}\n'.format(facter_error)
+        logging.debug('puppet facts = {}'.format(facts))
+        facts_file = open(os.path.join(args.puppet_facts_dir, 
+            'zone_status.txt'), 'w')
+        facts_file.write(facts)
+        facts_file.close()
+
+if __name__ == '__main__':
+    main()
