@@ -74,11 +74,11 @@ def check_zone(master, zone, addr, args):
     return zone_check.errors
 
 def get_facts_file(facts_dir):
-    possible_path = [
+    possible_paths = [
             '/etc/puppetlabs/facter/facts.d',
             '/var/puppet/facts.d']
     if facts_dir == 'guess':
-        for path in possible_dirs:
+        for path in possible_paths:
             if os.path.exists(path):
                 return open(os.path.join(path, 'zone_status.txt'), 'w')
         logging.error('unable to guess facts dir')
