@@ -1,0 +1,4 @@
+*.pyc
+build/
+dist/
+zonecheck.egg-info/

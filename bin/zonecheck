@@ -7,6 +7,7 @@ import socket
 import logging
 import argparse
 import dns.exception
+from sys import exit
 from time import sleep
 from zonecheck import ZoneCheck
 from dns.resolver import Resolver, NXDOMAIN, NoAnswer, NoNameservers
@@ -20,7 +21,7 @@ def get_args():
             help='location of error file')
     parser.add_argument('--puppet-facts', action='store_true')
     parser.add_argument('--puppet-facts-dir', 
-            default='/etc/puppetlabs/facter/facts.d')
+            default='guess')
     parser.add_argument('--config', default='/usr/local/etc/zone_check.conf',
              help='comma seperated list of zones')
     parser.add_argument('-v', '--verbose', action='count' )
@@ -72,6 +73,22 @@ def check_zone(master, zone, addr, args):
     zone_check.check()
     return zone_check.errors
 
+def get_facts_file(facts_dir):
+    possible_path = [
+            '/etc/puppetlabs/facter/facts.d',
+            '/var/puppet/facts.d']
+    if facts_file == 'guess':
+        for path in possible_dirs:
+            if os.path.exists(path):
+                return open(os.path.join(path, 'zone_status.txt'), 'w')
+        logging.error('unable to guess facts dir')
+        sys.exit(1)
+    elif os.path.exists(facts_dir):
+        return open(os.path.join(facts_dir, 'zone_status.txt'), 'w')
+    else:
+        loggin.error('invalid facts_dir: {}'.format(facts_dir))
+        sys.exit(1)
+
 def main():
     args = get_args()
     set_log_level(args.verbose)
@@ -117,8 +134,7 @@ def main():
             facter_error = str(any(errors)).lower()
         facts = 'zone_status_errors={}\n'.format(facter_error)
         logging.debug('puppet facts = {}'.format(facts))
-        facts_file = open(os.path.join(args.puppet_facts_dir, 
-            'zone_status.txt'), 'w')
+        facts_file = get_facts_file(args.puppet_facts_dir)
         facts_file.write(facts)
         facts_file.close()
 
