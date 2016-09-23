@@ -82,12 +82,12 @@ def get_facts_file(facts_dir):
             if os.path.exists(path):
                 return open(os.path.join(path, 'zone_status.txt'), 'w')
         logging.error('unable to guess facts dir')
-        sys.exit(1)
+        exit(1)
     elif os.path.exists(facts_dir):
         return open(os.path.join(facts_dir, 'zone_status.txt'), 'w')
     else:
         loggin.error('invalid facts_dir: {}'.format(facts_dir))
-        sys.exit(1)
+        exit(1)
 
 def main():
     args = get_args()
