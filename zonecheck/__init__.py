@@ -100,7 +100,7 @@ class ZoneCheck:
                             timeout=self.timeout)
                 else:
                     response = dns.query.udp(question, addr_tokens[0], port=port,
-                            timeout=timeout)
+                            timeout=self.timeout)
             except dns.exception.Timeout:
                 msg = '{} {} timed out'. format(addr, proto)
                 if i == self.retry - 1:
