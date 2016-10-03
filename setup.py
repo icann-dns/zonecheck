@@ -1,9 +1,26 @@
 #!/usr/bin/env python
-
+import os
 from setuptools import setup
+from setuptools.command.install import install
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+# Generate a list of python scripts
+scpts = []
+scpt_dir = os.listdir(os.path.join(here, 'bin'))
+for scpt in scpt_dir:
+    scpts.append(os.path.join(here, 'bin', scpt))
+
+class ScriptInstaller(install):
+
+    """Install scripts directly."""
+
+    def run(self):
+        """Wrapper for parent run."""
+        super(ScriptInstaller, self).run()
 
 setup(name='zonecheck',
-      version='1.0.5',
+      version='1.0.8',
       description='Librarys to check zones configuered on a server are working',
       author='John Bond',
       author_email='pypi@johnbond.org',
