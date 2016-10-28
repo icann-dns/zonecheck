@@ -168,6 +168,7 @@ class ZoneCheck:
                 msg = 'serial is ahead. Expected {} recived {}'.format(
                         self.master_soa.serial, soa.serial)
                 self.logger.warn(msg)
+                self.errors['master_soa'] = True
                 self.errors['soa'].append(msg)
 
     def check_zone(self, addr, proto='udp'):
