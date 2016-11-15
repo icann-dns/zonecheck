@@ -5,6 +5,7 @@ import os.path
 import yaml
 import socket
 import logging
+import logging.handlers
 import argparse
 import dns.exception
 from sys import exit
@@ -17,7 +18,7 @@ def get_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--serial-lag', default=2, type=int, 
             help='alert if the serial is behind by this value or more')
-    parser.add_argument('--out', default='/var/log/zone_status.err',
+    parser.add_argument('--log', default='/var/log/zone_status.log',
             help='location of error file')
     parser.add_argument('--puppet-facts', action='store_true')
     parser.add_argument('--puppet-facts-dir', 
@@ -39,7 +40,15 @@ def set_log_level(args_level):
         log_level = logging.DEBUG
     logging.basicConfig(level=log_level)
 
-def test_master(master):
+def get_log_file(file_name):
+    logger = logging.getLogger('zonecheck')
+    handler = logging.handlers.RotatingFileHandler(
+            file_name, maxBytes=100000000, backupCount=5)
+    formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
+    logger.addHandler(handler)
+    return logger
+
+def test_master(master, logger):
     '''test the master server is at least up before continuing'''
     resolver = Resolver()
     resolver.timeout = 5
@@ -54,11 +63,11 @@ def test_master(master):
         response = resolver.query('.', 'SOA', tcp=True)
     except dns.exception.Timeout:
         msg = 'Master check: {} Timeout'.format(master)
-        logging.debug(msg)
+        logger.debug(msg)
         return msg
     except socket.error:
         msg = 'Master check: {} Socket Error'.format(master)
-        logging.debug(msg)
+        logger.debug(msg)
         return msg
     except (NoAnswer, NXDOMAIN, NoNameservers):
         #we dont care about this just yet, 
@@ -66,14 +75,14 @@ def test_master(master):
         pass
     return False
 
-def check_zone(master, zone, addr, args):
-    logging.debug('{} &  {} with {}'.format(
+def check_zone(master, zone, addr, args, logger):
+    logger.debug('{} &  {} with {}'.format(
         master,zone,addr))
     zone_check = ZoneCheck(addr, master, zone)
     zone_check.check()
     return zone_check.errors
 
-def get_facts_file(facts_dir):
+def get_facts_file(facts_dir, logger):
     possible_paths = [
             '/etc/puppetlabs/facter/facts.d',
             '/var/puppet/facts.d']
@@ -81,7 +90,7 @@ def get_facts_file(facts_dir):
         for path in possible_paths:
             if os.path.exists(path):
                 return open(os.path.join(path, 'zone_status.txt'), 'w')
-        logging.error('unable to guess facts dir')
+        logger.error('unable to guess facts dir')
         exit(1)
     elif os.path.exists(facts_dir):
         return open(os.path.join(facts_dir, 'zone_status.txt'), 'w')
@@ -92,7 +101,7 @@ def get_facts_file(facts_dir):
 def main():
     args = get_args()
     set_log_level(args.verbose)
-    error_file = args.out
+    logger = get_log_file(args.log)
     config = yaml.load(file(args.config, 'r'))
     errors = { }
     master_soa_error = False
@@ -100,7 +109,7 @@ def main():
         if 'masters' not in cfg:
             continue
         for master in cfg['masters']:
-            master_error = test_master(master)
+            master_error = test_master(master, logger)
             if master_error:
                 master_soa_error = True
                 if master not in errors:
@@ -109,7 +118,7 @@ def main():
                 continue
             for zone in cfg['zones']:
                 for addr in config['ip_addresses']:
-                    check_errors = check_zone(master, zone, addr, args)
+                    check_errors = check_zone(master, zone, addr, args, logger)
                     if any(check_errors.values()):
                         if master not in errors:
                             errors[master] = { }
@@ -119,12 +128,8 @@ def main():
                         if check_errors['master_soa']:
                             master_soa_error = True
 
-    if os.path.isfile(error_file):
-        os.unlink(error_file)
-    if errors:
-        logging.debug(yaml.dump(errors))
-        with open(error_file, 'w') as outfile:
-            outfile.write(yaml.dump(errors))
+    logger.error('errors:{}'.format(yaml.dump(errors)))
+
     if args.puppet_facts:
         #this is a safty so we dont disable all kroot nodes if there is 
         #a problem with the distribution layer
@@ -133,8 +138,8 @@ def main():
         else:
             facter_error = str(any(errors)).lower()
         facts = 'zone_status_errors={}\n'.format(facter_error)
-        logging.debug('puppet facts = {}'.format(facts))
-        facts_file = get_facts_file(args.puppet_facts_dir)
+        logger.debug('puppet facts = {}'.format(facts))
+        facts_file = get_facts_file(args.puppet_facts_dir, logger)
         facts_file.write(facts)
         facts_file.close()
 
