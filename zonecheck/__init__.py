@@ -158,9 +158,9 @@ class ZoneCheck:
                 msg = 'serial is lagging. Expected {} recived {}'.format(
                         self.master_soa.serial, soa.serial)
                 self.logger.warn(msg)
-                master_date = datetime.strptime(str(self.master_soa.serial[:8]),
+                master_date = datetime.strptime(str(self.master_soa.serial)[:8],
                         '%Y%m%d').date()
-                soa_date = datetime.strptime(str(soa.serial[:8]),
+                soa_date = datetime.strptime(str(soa.serial)[:8],
                         '%Y%m%d').date()
                 if soa_date < (master_date - timedelta(days=self.serial_lag)):
                     self.errors['soa'].append(msg)
