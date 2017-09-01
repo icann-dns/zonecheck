@@ -108,6 +108,7 @@ def main():
     config = yaml.load(file(args.config, 'r'))
     errors = { }
     master_soa_error = False
+    facter_error = False
     for zone_set, cfg in config['zones'].items():
         if 'masters' not in cfg:
             continue
@@ -128,19 +129,19 @@ def main():
                         if zone not in errors[master]:
                             errors[master][zone] = { }
                         errors[master][zone][addr] = check_errors
+                        if any(check_errors['general']):
+                            facter_error = True
                         if check_errors['master_soa']:
                             master_soa_error = True
 
     logger.error('errors:{}'.format(yaml.dump(errors)))
 
     if args.puppet_facts:
-        #this is a safty so we dont disable all kroot nodes if there is 
-        #a problem with the distribution layer
+        # this is a safty so we dont disable all nodes if there is 
+        # a problem with the distribution layer
         if master_soa_error:
-            facter_error = 'false'
-        else:
-            facter_error = str(any(errors)).lower()
-        facts = 'zone_status_errors={}\n'.format(facter_error)
+            facter_error = False
+        facts = 'zone_status_errors={}\n'.format(str(facter_error).lower())
         logger.debug('puppet facts = {}'.format(facts))
         facts_file = get_facts_file(args.puppet_facts_dir, logger)
         facts_file.write(facts)
