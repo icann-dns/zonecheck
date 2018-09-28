@@ -87,6 +87,7 @@ class ZoneCheck:
                 'general' : [],
                 'soa'     : []}
         self.set_master_soa()
+
     def get_dns(self, addr, proto='udp'):
         question = dns.message.make_query(self.zone, dns.rdatatype.SOA)
         addr_tokens = addr.split()
@@ -102,7 +103,7 @@ class ZoneCheck:
                     response = dns.query.udp(question, addr_tokens[0], port=port,
                             timeout=self.timeout)
             except dns.exception.Timeout:
-                msg = '{} {} timed out'. format(addr, proto)
+                msg = '{}:{} {} timed out'. format(self.zone, addr, proto)
                 if i == self.retry - 1:
                     self.errors['general'].append(msg)
                     self.logger.error(msg)
@@ -110,7 +111,7 @@ class ZoneCheck:
                     self.logger.warn(msg)
                     time.sleep(1)
             except socket.error as e:
-                msg = '{} {} socket error'. format(addr, proto)
+                msg = '{}:{} {} socket error'. format(self.zone, addr, proto)
                 if i == self.retry - 1:
                     self.errors['general'].append(msg)
                     self.logger.error(msg)
@@ -180,13 +181,15 @@ class ZoneCheck:
                 if answer.rdtype == dns.rdatatype.SOA:
                     self.check_soa(answer.to_rdataset()[0])
 
-    @staticmethod
-    def have_ipv6_scop_local():
+    def have_ipv6_scop_local(self):
         '''check if the hst has a Global Scope ipv6 address'''
-        with open('/proc/net/if_inet6') as f:
-            for line in f.readlines():
-                if line.split()[3] == '00':
-                    return True
+        try:
+            with open('/proc/net/if_inet6') as f:
+                for line in f.readlines():
+                    if line.split()[3] == '00':
+                        return True
+        except IOError as e:
+            self.logger.error('not on linux? {}'.format(e))
         return False
             
     def check(self):
@@ -211,4 +214,42 @@ class ZoneCheck:
                             self.logger.warn(msg)
                             time.sleep(1)
 
+class ZoneCheckLite(ZoneCheck):
 
+    def __init__(self, server, masters, zone, 
+            serial_lag = 2, retry = 3, timeout = 5):
+            self.logger     = logging.getLogger('zonecheck.ZoneCheck')
+            self.retry      = retry
+            self.timeout    = timeout
+            self.serial_lag = serial_lag
+            self.zone       = zone
+            self.server     = server
+            self.masters    = masters
+            self.errors     = {
+                    'master_soa': False,
+                    'general' : [],
+                    'soa'     : []}
+            self.set_master_soa()
+
+    def set_master_soa(self):
+        '''perform checks'''
+        question = dns.message.make_query(self.zone, dns.rdatatype.SOA)
+        for master in self.masters:
+            answers = self.get_dns(master)
+            if answers:
+                for answer in answers:
+                    if answer.rdtype == dns.rdatatype.SOA:
+                        self.master_soa = answer.to_rdataset()[0]
+                        self.logger.debug('MASTER_SOA:{} from {}'.format(
+                            self.master_soa, master))
+                        return
+        self.errors['master_soa'] = True
+
+    def check(self):
+        '''preform all checks'''
+        if not self.errors['master_soa']:
+            for proto in ['udp', 'tcp']:
+                if ':' in self.server and not self.have_ipv6_scop_local():
+                    # only check v6 if we have a global v6 address
+                    continue
+                self.check_zone(self.server, proto)

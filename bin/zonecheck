@@ -16,12 +16,12 @@ from dns.resolver import Resolver, NXDOMAIN, NoAnswer, NoNameservers
 def get_args():
     '''get command line arguments'''
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--serial-lag', default=2, type=int, 
+    parser.add_argument('--serial-lag', default=2, type=int,
             help='alert if the serial is behind by this value or more')
     parser.add_argument('--log', default='/var/log/zone_status.log',
             help='location of error file')
     parser.add_argument('--puppet-facts', action='store_true')
-    parser.add_argument('--puppet-facts-dir', 
+    parser.add_argument('--puppet-facts-dir',
             default='guess')
     parser.add_argument('--config', default='/usr/local/etc/zone_check.conf',
              help='comma seperated list of zones')
@@ -60,7 +60,7 @@ def test_master(master, logger):
         resolver.port = int(master_tokens[2])
     resolver.nameservers = [master_tokens[0]]
     try:
-        #check root right now we dont care what we 
+        #check root right now we dont care what we
         #get we just want a dns response
         response = resolver.query('.', 'SOA')
         response = resolver.query('.', 'SOA', tcp=True)
@@ -73,7 +73,7 @@ def test_master(master, logger):
         logger.debug(msg)
         return msg
     except (NoAnswer, NXDOMAIN, NoNameservers):
-        #we dont care about this just yet, 
+        #we dont care about this just yet,
         #we are just checking the dns server is up
         pass
     return False
@@ -88,7 +88,7 @@ def check_zone(master, zone, addr, args, logger):
 def get_facts_file(facts_dir, logger):
     possible_paths = [
             '/etc/puppetlabs/facter/facts.d',
-            '/var/puppet/facts.d']
+            '/var/puppet/facts']
     if facts_dir == 'guess':
         for path in possible_paths:
             if os.path.exists(path):
@@ -137,7 +137,7 @@ def main():
     logger.error('errors:{}'.format(yaml.dump(errors)))
 
     if args.puppet_facts:
-        # this is a safty so we dont disable all nodes if there is 
+        # this is a safty so we dont disable all nodes if there is
         # a problem with the distribution layer
         if master_soa_error:
             facter_error = False

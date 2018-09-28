@@ -20,7 +20,7 @@ class ScriptInstaller(install):
         super(ScriptInstaller, self).run()
 
 setup(name='zonecheck',
-      version='1.0.18',
+      version='1.2.0',
       description='Librarys to check zones configuered on a server are working',
       author='John Bond',
       author_email='pypi@johnbond.org',
@@ -33,6 +33,7 @@ setup(name='zonecheck',
           ],
       scripts=[
           'bin/zonecheck',
+          'bin/zonechecklite',
           'bin/axfrcheck',
           ],
      )
