@@ -16,24 +16,25 @@ class ScriptInstaller(install):
     """Install scripts directly."""
 
     def run(self):
-        """Wrapper for parent run."""
-        super(ScriptInstaller, self).run()
+	    """Wrapper for parent run."""
+	    super(ScriptInstaller, self).run()
 
 setup(name='zonecheck',
-      version='1.2.0',
-      description='Librarys to check zones configuered on a server are working',
-      author='John Bond',
-      author_email='pypi@johnbond.org',
-      url='https://github.com/icann-dns/zonecheck',
-      license='Apache-2.0',
-      packages=['zonecheck'],
-      keywords='dns',
-      install_requires=[
-          'dnspython'
-          ],
-      scripts=[
-          'bin/zonecheck',
-          'bin/zonechecklite',
-          'bin/axfrcheck',
-          ],
+	version='1.3.0',
+	description='Libraries to check if DNS zonefiles configured on a server are working',
+	author='John Bond',
+	author_email='pypi@johnbond.org',
+	url='https://github.com/icann-dns/zonecheck',
+	license='Apache-2.0',
+	packages=['zonecheck'],
+	keywords='dns',
+	install_requires=[
+       'dnspython',
+       'pyyaml'
+       ],
+	scripts=[
+	   'bin/zonecheck',
+	   'bin/zonechecklite',
+	   'bin/axfrcheck',
+	   ],
      )

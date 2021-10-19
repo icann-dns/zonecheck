@@ -1,4 +1,4 @@
-#!rusr/bin/env python
+#!/usr/bin/env python
 import os
 import os.path
 import time
@@ -11,6 +11,8 @@ import dns.query
 import dns.message
 import dns.rdatatype
 from datetime import datetime, timedelta
+from builtins import range
+
 class AxfrCheck:
     '''check a zone via AXFR'''
     
@@ -94,7 +96,7 @@ class ZoneCheck:
         port = 53
         if len(addr_tokens) == 3 and addr_tokens[1] == 'port':
             port = int(addr_tokens[2])
-        for i in xrange(self.retry):
+        for i in range(self.retry):
             try:
                 if proto == 'tcp':
                     response = dns.query.tcp(question, addr_tokens[0], port=port, 
@@ -196,7 +198,7 @@ class ZoneCheck:
         '''preform all checks'''
         if not self.errors['master_soa']:
             for proto in ['udp', 'tcp']:
-                for i in xrange(self.retry):
+                for i in range(self.retry):
                     try:
                         for addr_info in socket.getaddrinfo(
                                 self.server, 0, 0, 0, socket.SOL_TCP):

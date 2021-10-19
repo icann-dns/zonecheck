@@ -8,9 +8,9 @@ import logging
 import logging.handlers
 import argparse
 import dns.exception
-from sys import exit, version_info
+from sys import exit
 from time import sleep
-from zonecheck import ZoneCheck
+from zonecheck import ZoneCheckLite
 from dns.resolver import Resolver, NXDOMAIN, NoAnswer, NoNameservers
 
 def get_args():
@@ -51,44 +51,9 @@ def get_log_file(file_name):
         logger.addHandler(handler)
     return logger
 
-def test_master(master, logger):
-    '''test the master server is at least up before continuing'''
-    resolver = Resolver()
-    resolver.timeout = 5
-    master_tokens = master.split()
-    if len(master_tokens) == 3 and master_tokens[1] == 'port':
-        resolver.port = int(master_tokens[2])
-    resolver.nameservers = [master_tokens[0]]
-    try:
-        #check root right now we dont care what we
-        #get we just want a dns response
-        if version_info.major >= 3:
-            response = dns.resolver.resolve('.', 'SOA')
-            response = dns.resolver.resolve('.', 'SOA', tcp=True)
-        elif version_info.major == 2:
-            response = dns.resolver.query('.', 'SOA')
-            response = dns.resolver.query('.', 'SOA', tcp=True)
-        else:
-            print ("Wrong Python version: ", version_info.major)
-            exit(1)
-    except dns.exception.Timeout:
-        msg = 'Master check: {} Timeout'.format(master)
-        logger.debug(msg)
-        return msg
-    except socket.error:
-        msg = 'Master check: {} Socket Error'.format(master)
-        logger.debug(msg)
-        return msg
-    except (NoAnswer, NXDOMAIN, NoNameservers):
-        #we dont care about this just yet,
-        #we are just checking the dns server is up
-        pass
-    return False
-
-def check_zone(master, zone, addr, args, logger):
-    logger.debug('{} &  {} with {}'.format(
-        master,zone,addr))
-    zone_check = ZoneCheck(addr, master, zone)
+def check_zone(masters, zone, addr, args, logger):
+    logger.debug('{} &  {} with {}'.format(masters, zone,addr))
+    zone_check = ZoneCheckLite(addr, masters, zone)
     zone_check.check()
     return zone_check.errors
 
@@ -114,32 +79,22 @@ def main():
     logger = get_log_file(args.log)
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
     errors = { }
-    master_soa_error = False
     facter_error = False
+    master_soa_error = False
     for zone_set, cfg in config['zones'].items():
         if 'masters' not in cfg:
             continue
-        for master in cfg['masters']:
-            master_error = test_master(master, logger)
-            if master_error:
-                master_soa_error = True
-                if master not in errors:
-                    errors[master] = { }
-                errors[master]['master_error'] = master_error
-                continue
-            for zone in cfg['zones']:
-                for addr in config['ip_addresses']:
-                    check_errors = check_zone(master, zone, addr, args, logger)
-                    if any(check_errors.values()):
-                        if master not in errors:
-                            errors[master] = { }
-                        if zone not in errors[master]:
-                            errors[master][zone] = { }
-                        errors[master][zone][addr] = check_errors
-                        if any(check_errors['general']):
-                            facter_error = True
-                        if check_errors['master_soa']:
-                            master_soa_error = True
+        for zone in cfg['zones']:
+            for addr in config['ip_addresses']:
+                check_errors = check_zone(cfg['masters'], zone, addr, args, logger)
+                if any(check_errors.values()):
+                    if zone not in errors:
+                        errors[zone] = { }
+                    errors[zone][addr] = check_errors
+                    if any(check_errors['general']):
+                        facter_error = True
+                    if check_errors['master_soa']:
+                        master_soa_error = True
 
     logger.error('errors:{}'.format(yaml.dump(errors)))
 

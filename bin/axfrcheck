@@ -25,10 +25,10 @@ def get_args():
     parser.add_argument('--out', default='/var/log/zone_rrsig_status.err',
             help='location of error file')
     parser.add_argument('--sleep', default=0.1, type=float,
-             help='comma seperated list of zones')
+             help='Sleep time')
     parser.add_argument('--config', default='/usr/local/etc/zone_check.conf',
              help='comma seperated list of zones')
-    parser.add_argument('-v', '--verbose', action='count' )
+    parser.add_argument('-v', '--verbose', action='count', default=1 )
     return parser.parse_args()
 
 def set_log_level(args_level):
@@ -52,7 +52,7 @@ def main():
     args = get_args()
     set_log_level(args.verbose)
     error_file = args.out
-    config = yaml.load(file(args.config, 'r'))
+    config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
     errors = { }
     for zone_set, cfg in config['zones'].items():
         for zone in cfg['zones']:
