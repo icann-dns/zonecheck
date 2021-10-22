@@ -52,7 +52,10 @@ def main():
     args = get_args()
     set_log_level(args.verbose)
     error_file = args.out
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
+    try:
+        config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
+    except:
+        config = yaml.load(open(args.config, 'r'))
     errors = { }
     for zone_set, cfg in config['zones'].items():
         for zone in cfg['zones']:

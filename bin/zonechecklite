@@ -77,7 +77,10 @@ def main():
     args = get_args()
     set_log_level(args.verbose)
     logger = get_log_file(args.log)
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
+    try:
+        config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
+    except:
+        config = yaml.load(open(args.config, 'r'))
     errors = { }
     facter_error = False
     master_soa_error = False

@@ -11,7 +11,11 @@ import dns.query
 import dns.message
 import dns.rdatatype
 from datetime import datetime, timedelta
-from builtins import range
+from sys import exit
+try:
+	from builtins import range
+except ImportError as e:
+	self.logger.debug(e)
 
 class AxfrCheck:
     '''check a zone via AXFR'''
