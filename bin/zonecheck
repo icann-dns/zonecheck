@@ -96,11 +96,11 @@ def get_facts_file(facts_dir, logger):
     if facts_dir == 'guess':
         for path in possible_paths:
             if os.path.exists(path):
-                return open(os.path.join(path, 'zone_status.txt'), 'w')
+                return open(os.path.join(path, 'zone_status.yaml'), 'w')
         logger.error('unable to guess facts dir')
         exit(1)
     elif os.path.exists(facts_dir):
-        return open(os.path.join(facts_dir, 'zone_status.txt'), 'w')
+        return open(os.path.join(facts_dir, 'zone_status.yaml'), 'w')
     else:
         loggin.error('invalid facts_dir: {}'.format(facts_dir))
         exit(1)
@@ -148,10 +148,10 @@ def main():
         # a problem with the distribution layer
         if master_soa_error:
             facter_error = False
-        facts = 'zone_status_errors={}\n'.format(str(facter_error).lower())
-        logger.debug('puppet facts = {}'.format(facts))
+        facts = {'zone_status_errors': facter_error}
+        logger.debug(facts)
         facts_file = get_facts_file(args.puppet_facts_dir, logger)
-        facts_file.write(facts)
+        yaml.safe_dump(facts, facts_file)
         facts_file.close()
 
 if __name__ == '__main__':
